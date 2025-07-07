@@ -1,7 +1,6 @@
 # 🛰️ Meraki Monitoring with InfluxDB and Grafana
 
-![image](https://github.com/user-attachments/assets/cfe28761-27e6-4edc-9210-c3ad176901b2)
-
+![Dashboard Screenshot](.Screenshot.png)
 
 **Comprehensive network analytics using the Meraki Dashboard API, InfluxDB, and Grafana deployed and orchestrated with Ansible, Terraform, and GitHub Actions to collect and store data beyond the Meraki dashboard, enabling deeper trend monitoring and troubleshooting.**
 
