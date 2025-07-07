@@ -139,7 +139,7 @@ You can schedule this via cron/systemd for automation.
   * Measurement: `wireless_latency_history`, `client_count`, `channel_utilisation`, etc.
   * Tags: `serial`, `model`, `band`
 
-### 🔍 Visualization Grafana Queries examples
+### 🔍 Visualization Grafana Querie examples
 
 * Pending
 
