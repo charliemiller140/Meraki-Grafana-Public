@@ -20,5 +20,7 @@ python3 /opt/meraki-monitoring/complete/top_ap.py
 echo "Running top Network Usage Apps Script: "
 python3 /opt/meraki-monitoring/complete/app_usage_db.py
 echo "running snmp up/down now: "
-source ~/meraki-py311-env/bin/activate
+
+# This is a different venv because the SNMP module does not run on the lastest Python verson
+source ~/meraki-py311-env/bin/activate 
 python /opt/meraki-monitoring/complete/snmp_influx.py
