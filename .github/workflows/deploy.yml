@@ -1,0 +1,74 @@
+name: Provision and Configure VM
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+      - '.github/workflows/deploy.yml'
+      - 'ansible/**'
+#
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    env:
+      PROXMOX_API_URL: ${{ secrets.PROXMOX_API_URL }}
+      PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
+      PROXMOX_TOKEN_ID: ${{ secrets.PROXMOX_TOKEN_ID }}
+      PROXMOX_TOKEN_SECRET: ${{ secrets.PROXMOX_TOKEN_SECRET }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install unzip and Ansible dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y unzip ansible sshpass
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Terraform Init & Apply
+      working-directory: ./terraform
+      run: |
+        terraform init
+        terraform apply -auto-approve
+
+    - name: Write SSH Key
+      run: |
+        mkdir -p ansible
+        echo "${{ secrets.ANSIBLE_PRIVATE_KEY }}" | tr -d '\r' > ansible/id_rsa
+        chmod 600 ansible/id_rsa
+
+    - name: Clean known_hosts entry for VM IP
+      run: ssh-keygen -f "/home/user/.ssh/known_hosts" -R "x.x.x.x" || true
+
+
+    - name: Wait for SSH to become available
+      run: |
+        echo "⌛ Waiting for SSH on ubuntu@X.X.X.X..."
+        for i in {1..30}; do
+          if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i ansible/id_rsa ubuntu@x.x.x.x "echo ready"; then
+            echo "✅ SSH is up!"
+            break
+          else
+            echo "❌ SSH not ready yet... retrying ($i/30)"
+            sleep 10
+          fi
+        done
+
+    - name: Run Ansible Playbook
+      working-directory: ./ansible
+      run: |
+        export ANSIBLE_HOST_KEY_CHECKING=False
+        ansible-playbook -i inventory.ini playbooks/base-config.yml \
+          --private-key id_rsa \
+          -u ubuntu

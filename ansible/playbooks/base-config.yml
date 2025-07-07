@@ -1,0 +1,140 @@
+---
+- name: Meraki Monitoring VM Setup (Ubuntu 24.04)
+  hosts: all
+  become: true
+
+  vars:
+    python_version: python3
+    project_dir: /opt/meraki-monitoring
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install base packages
+      apt:
+        name:
+          - "{{ python_version }}"
+          - "{{ python_version }}-venv"
+          - "{{ python_version }}-pip"
+          - git
+          - curl
+          - wget
+          - unzip
+          - gnupg
+          - software-properties-common
+          - apt-transport-https
+        state: present
+
+    - name: Add Grafana APT key
+      shell: |
+        curl -fsSL https://packages.grafana.com/gpg.key | gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
+      args:
+        creates: /etc/apt/keyrings/grafana.gpg
+
+    - name: Add Grafana repo
+      copy:
+        dest: /etc/apt/sources.list.d/grafana.list
+        content: |
+          deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://packages.grafana.com/oss/deb stable main
+
+    - name: Remove any corrupted Grafana package from apt cache
+      file:
+        path: /var/cache/apt/archives/grafana_12.0.2_amd64.deb
+        state: absent
+
+    - name: Install Grafana
+      apt:
+        name: grafana
+        update_cache: yes
+        state: present
+
+    - name: Enable and start Grafana
+      systemd:
+        name: grafana-server
+        enabled: yes
+        state: started
+
+    - name: Add InfluxDB APT repository (trusted=yes workaround)
+      copy:
+        dest: /etc/apt/sources.list.d/influxdb.list
+        content: |
+          deb [trusted=yes] https://repos.influxdata.com/debian stable main
+
+    - name: Install InfluxDB
+      apt:
+        name: influxdb
+        update_cache: yes
+        state: present
+
+    - name: Enable and start InfluxDB
+      systemd:
+        name: influxdb
+        enabled: yes
+        state: started
+
+    - name: Create project directory
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create Python virtual environment
+      command: "{{ python_version }} -m venv {{ project_dir }}/venv"
+      args:
+        creates: "{{ project_dir }}/venv"
+
+    - name: Create requirements.txt file
+      copy:
+        dest: "{{ project_dir }}/requirements.txt"
+        content: |
+          meraki
+          requests
+          influxdb
+          pandas
+
+    - name: Install Python dependencies in venv
+      pip:
+        requirements: "{{ project_dir }}/requirements.txt"
+        virtualenv: "{{ project_dir }}/venv"
+        virtualenv_command: "{{ python_version }} -m venv"
+
+    - name: Copy Meraki ingestion script
+      copy:
+        dest: "{{ project_dir }}/ingest.py"
+        content: |
+          import meraki
+          from influxdb import InfluxDBClient
+          import os
+
+          MERAKI_API_KEY = os.getenv("MERAKI_API_KEY")
+          ORG_ID = os.getenv("MERAKI_ORG_ID")
+
+          dashboard = meraki.DashboardAPI(MERAKI_API_KEY)
+          networks = dashboard.organizations.getOrganizationNetworks(ORG_ID)
+
+          client = InfluxDBClient(host="localhost", port=8086, database="meraki")
+
+          for net in networks:
+              json_body = [{
+                  "measurement": "meraki_networks",
+                  "tags": {
+                      "id": net["id"],
+                      "name": net["name"]
+                  },
+                  "fields": {
+                      "timeZone": net.get("timeZone", "UTC"),
+                      "productTypes": len(net.get("productTypes", []))
+                  }
+              }]
+              client.write_points(json_body)
+
+    - name: Create environment file with Meraki API credentials
+      copy:
+        dest: "{{ project_dir }}/.env"
+        content: |
+          export MERAKI_API_KEY=c1d5815f996e49ba85d9cdc4545a25f6c32ed29f
+          export MERAKI_ORG_ID=_KuoUd
+        mode: '0600'
+
