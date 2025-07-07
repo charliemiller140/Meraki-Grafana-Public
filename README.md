@@ -3,7 +3,7 @@
 ![image](https://github.com/user-attachments/assets/cfe28761-27e6-4edc-9210-c3ad176901b2)
 
 
-**Comprehensive network analytics using the Meraki Dashboard API, InfluxDB, and Grafana deployed and orchestrated with Ansible, Terraform, and GitHub Actions.**
+**Comprehensive network analytics using the Meraki Dashboard API, InfluxDB, and Grafana deployed and orchestrated with Ansible, Terraform, and GitHub Actions. The point of this was to collect and store data that goes beyond the Meraki dashboard, and allows greater trend monitoring to aid troubleshooting.**
 
 ---
 
